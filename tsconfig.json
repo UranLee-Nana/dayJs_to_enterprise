@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@dayjs-business/core": ["packages/core/src"],
+      "@dayjs-business/utils": ["packages/utils/src"],
+      "@dayjs-business/plugins/*": ["packages/plugins/*/src"],
+      "@dayjs-business/services/*": ["packages/services/*/src"]
+    }
+  },
+  "include": ["packages/**/*.ts"],
+  "exclude": ["node_modules", "**/dist/**", "**/*.test.ts"]
+}

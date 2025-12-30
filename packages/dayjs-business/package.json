@@ -1,0 +1,92 @@
+{
+  "name": "dayjs-business",
+  "version": "1.0.0",
+  "description": "Enterprise-grade Day.js wrapper for B2B scenarios",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./plugins/business-day": {
+      "import": "@dayjs-business/plugin-business-day",
+      "require": "@dayjs-business/plugin-business-day"
+    },
+    "./plugins/financial-quarter": {
+      "import": "@dayjs-business/plugin-financial-quarter",
+      "require": "@dayjs-business/plugin-financial-quarter"
+    },
+    "./plugins/subscription-cycle": {
+      "import": "@dayjs-business/plugin-subscription-cycle",
+      "require": "@dayjs-business/plugin-subscription-cycle"
+    },
+    "./plugins/data-range": {
+      "import": "@dayjs-business/plugin-data-range",
+      "require": "@dayjs-business/plugin-data-range"
+    },
+    "./timezone": {
+      "import": "@dayjs-business/service-timezone",
+      "require": "@dayjs-business/service-timezone"
+    },
+    "./billing": {
+      "import": "@dayjs-business/service-billing",
+      "require": "@dayjs-business/service-billing"
+    },
+    "./analytics": {
+      "import": "@dayjs-business/service-analytics",
+      "require": "@dayjs-business/service-analytics"
+    },
+    "./utils": {
+      "import": "@dayjs-business/utils",
+      "require": "@dayjs-business/utils"
+    }
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "@dayjs-business/core": "workspace:*",
+    "@dayjs-business/utils": "workspace:*",
+    "@dayjs-business/plugin-business-day": "workspace:*",
+    "@dayjs-business/plugin-financial-quarter": "workspace:*",
+    "@dayjs-business/plugin-subscription-cycle": "workspace:*",
+    "@dayjs-business/plugin-data-range": "workspace:*",
+    "@dayjs-business/service-timezone": "workspace:*",
+    "@dayjs-business/service-billing": "workspace:*",
+    "@dayjs-business/service-analytics": "workspace:*",
+    "dayjs": "^1.11.10"
+  },
+  "peerDependencies": {
+    "dayjs": ">=1.11.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.2"
+  },
+  "keywords": [
+    "dayjs",
+    "date",
+    "time",
+    "business",
+    "enterprise",
+    "typescript",
+    "timezone",
+    "billing",
+    "analytics"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/dayjs-business.git"
+  },
+  "author": "uranlxy <uranlxy235@gmail.com>",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

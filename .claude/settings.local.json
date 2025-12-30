@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm install:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm build:*)",
+      "Bash(find:*)",
+      "Bash(for:*)",
+      "Bash(do if [ -d \"$dir\" ])",
+      "Bash(then echo \"✓ $dir\")",
+      "Bash(else echo \"✗ $dir missing\")",
+      "Bash(fi:*)",
+      "Bash(done)",
+      "Bash(ls:*)"
+    ]
+  }
+}
