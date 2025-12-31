@@ -1,4 +1,7 @@
 import dayjs, { Dayjs, OpUnitType } from 'dayjs'
+import weekOfYear from 'dayjs/plugin/weekOfYear'
+
+dayjs.extend(weekOfYear)
 import type { DateInput, DateRange } from '@dayjs-business/core'
 
 /**
