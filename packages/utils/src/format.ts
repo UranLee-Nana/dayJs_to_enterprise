@@ -1,6 +1,7 @@
 import dayjs, { Dayjs } from 'dayjs'
 import weekOfYear from 'dayjs/plugin/weekOfYear'
 
+// 注册周序号插件，确保在任何 .week() 调用前完成初始化
 dayjs.extend(weekOfYear)
 import type { DateInput } from '@dayjs-business/core'
 
