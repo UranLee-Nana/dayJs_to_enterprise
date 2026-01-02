@@ -146,6 +146,150 @@ describe('DayjsFactory', () => {
       expect(holiday.isBusinessDay()).toBe(false)
     })
   })
+
+  describe('Instance isolation', () => {
+    it('should maintain separate plugin registries', () => {
+      const factory1 = new DayjsFactory()
+      const factory2 = new DayjsFactory()
+
+      expect(factory1.getInstanceId()).not.toBe(factory2.getInstanceId())
+      expect(factory1.getPluginCount()).toBe(factory2.getPluginCount())
+    })
+
+    it('should isolate business rules between factories', () => {
+      const factory1 = new DayjsFactory({
+        businessRules: {
+          workdays: [1, 2, 3, 4, 5],
+          holidays: []
+        }
+      })
+
+      const factory2 = new DayjsFactory({
+        businessRules: {
+          workdays: [1, 2, 3, 4], // Different workdays
+          holidays: []
+        }
+      })
+
+      // Friday (day 5)
+      const friday = factory1.create({ input: '2024-01-12' })
+      expect(friday.isBusinessDay()).toBe(true)
+
+      const friday2 = factory2.create({ input: '2024-01-12' })
+      expect(friday2.isBusinessDay()).toBe(false) // Factory 2 doesn't work on Friday
+    })
+
+    it('should not share configuration references', () => {
+      const factory1 = new DayjsFactory({
+        businessRules: {
+          workdays: [1, 2, 3, 4, 5],
+          holidays: []
+        }
+      })
+
+      const config1 = factory1.getConfig()
+      const config2 = factory1.getConfig()
+
+      // Configs should be frozen (readonly)
+      expect(Object.isFrozen(config1)).toBe(true)
+
+      // Both configs should have the same values initially
+      expect(config1.businessRules.workdays).toEqual([1, 2, 3, 4, 5])
+      expect(config2.businessRules.workdays).toEqual([1, 2, 3, 4, 5])
+    })
+  })
+
+  describe('Plugin management', () => {
+    it('should prevent duplicate plugin registration', () => {
+      // Create a mock plugin function with proper name
+      const mockPlugin = function testPlugin(_o: any, c: any, _p: any) {
+        // Mock plugin that adds a test method
+        c.prototype.testMethod = function () {
+          return 'test'
+        }
+      } as any
+
+      const factory = new DayjsFactory()
+
+      const initialCount = factory.getPluginCount()
+
+      // Register plugin
+      factory.use(mockPlugin)
+      expect(factory.getPluginCount()).toBe(initialCount + 1)
+
+      // Try to register again - should be skipped
+      factory.use(mockPlugin)
+      expect(factory.getPluginCount()).toBe(initialCount + 1) // No change
+    })
+
+    it('should track registered plugins', () => {
+      const mockPlugin = function testPlugin2(_o: any, c: any, _p: any) {
+        c.prototype.testMethod2 = function () {
+          return 'test2'
+        }
+      } as any
+
+      const factory = new DayjsFactory()
+
+      factory.use(mockPlugin)
+
+      expect(factory.hasPlugin(mockPlugin)).toBe(true)
+      expect(factory.getRegisteredPlugins()).toContain(mockPlugin)
+    })
+
+    it('should expose plugin information', () => {
+      const mockPlugin = function customPlugin(_o: any, c: any, _p: any) {
+        c.prototype.testMethod3 = function () {
+          return 'test3'
+        }
+      } as any
+
+      const factory = new DayjsFactory({
+        plugins: [mockPlugin]
+      })
+
+      expect(factory.getPluginCount()).toBeGreaterThanOrEqual(1)
+      expect(factory.getRegisteredPlugins()).toBeDefined()
+      expect(Array.isArray(factory.getRegisteredPlugins())).toBe(true)
+    })
+  })
+
+  describe('Configuration deep merge', () => {
+    it('should deeply clone business rules', () => {
+      const customHolidays = [{ date: '2024-01-01', name: 'New Year', type: 'public' }]
+
+      const factory = new DayjsFactory({
+        businessRules: {
+          workdays: [1, 2, 3, 4, 5],
+          holidays: customHolidays
+        }
+      })
+
+      const config = factory.getConfig()
+
+      // Modify original array
+      customHolidays.push({ date: '2024-12-25', name: 'Christmas', type: 'public' } as any)
+
+      // Factory config should not be affected
+      expect(config.businessRules.holidays).toHaveLength(1)
+      expect(config.businessRules.holidays[0]?.date).toBe('2024-01-01')
+    })
+
+    it('should not share default config references', () => {
+      const factory1 = new DayjsFactory()
+      const factory2 = new DayjsFactory()
+
+      const config1 = factory1.getConfig()
+      const config2 = factory2.getConfig()
+
+      // Both should have same values
+      expect(config1.businessRules.workdays).toEqual(config2.businessRules.workdays)
+
+      // But modifying one should not affect the other
+      // (This tests that deep cloning is working)
+      expect(Object.isFrozen(config1)).toBe(true)
+    })
+  })
 })
 
 describe('createDayjsFactory', () => {

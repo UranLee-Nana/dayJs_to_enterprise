@@ -7,7 +7,8 @@ import type {
   CreateDayjsOptions,
   BusinessDayjs,
   BusinessDate,
-  ISO8601String
+  ISO8601String,
+  BusinessRules
 } from './types'
 import {
   DEFAULT_CONFIG,
@@ -32,17 +33,36 @@ function generateInstanceId(): string {
  * Plugin registry for managing plugin instances per factory
  */
 class PluginRegistry {
-  private plugins: Set<PluginFunc> = new Set()
+  private plugins: Map<string, PluginFunc> = new Map()
   private initialized = false
 
-  register(plugin: PluginFunc): void {
-    if (!this.plugins.has(plugin)) {
-      this.plugins.add(plugin)
+  /**
+   * Generate a unique key for a plugin
+   */
+  private getPluginKey(plugin: PluginFunc): string {
+    return plugin.name || `plugin_${Math.random().toString(36).substring(2, 9)}`
+  }
+
+  register(plugin: PluginFunc): boolean {
+    const key = this.getPluginKey(plugin)
+    if (this.plugins.has(key)) {
+      return false // Already registered
     }
+    this.plugins.set(key, plugin)
+    return true
+  }
+
+  has(plugin: PluginFunc): boolean {
+    const key = this.getPluginKey(plugin)
+    return this.plugins.has(key)
   }
 
   getPlugins(): PluginFunc[] {
-    return Array.from(this.plugins)
+    return Array.from(this.plugins.values())
+  }
+
+  getPluginCount(): number {
+    return this.plugins.size
   }
 
   isInitialized(): boolean {
@@ -52,6 +72,36 @@ class PluginRegistry {
   markInitialized(): void {
     this.initialized = true
   }
+
+  clear(): void {
+    this.plugins.clear()
+    this.initialized = false
+  }
+}
+
+/**
+ * Deep clone a value (simple implementation for known types)
+ */
+function deepClone<T>(value: T): T {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(item => deepClone(item)) as unknown as T
+  }
+
+  if (value instanceof Date) {
+    return new Date(value.getTime()) as unknown as T
+  }
+
+  const cloned = {} as T
+  for (const key in value) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      cloned[key] = deepClone(value[key])
+    }
+  }
+  return cloned
 }
 
 /**
@@ -65,20 +115,40 @@ class ConfigManager {
   }
 
   private mergeWithDefaults(config: Partial<DayjsBusinessConfig>): DayjsBusinessConfig {
+    // Deep clone defaults to avoid shared references
+    const defaultRules = deepClone(DEFAULT_BUSINESS_RULES)
+
+    // Deep merge business rules
+    const mergedRules = config.businessRules
+      ? this.mergeBusinessRules(defaultRules, config.businessRules)
+      : defaultRules
+
     return {
       locale: config.locale ?? DEFAULT_CONFIG.locale,
       timezone: config.timezone ?? DEFAULT_CONFIG.timezone,
-      businessRules: config.businessRules
-        ? { ...DEFAULT_BUSINESS_RULES, ...config.businessRules }
-        : DEFAULT_BUSINESS_RULES,
-      plugins: config.plugins ?? DEFAULT_CONFIG.plugins,
+      businessRules: mergedRules,
+      plugins: config.plugins ? [...config.plugins] : DEFAULT_CONFIG.plugins ? [...DEFAULT_CONFIG.plugins] : [],
       strict: config.strict ?? DEFAULT_CONFIG.strict,
       debugMode: config.debugMode ?? DEFAULT_CONFIG.debugMode
     }
   }
 
+  /**
+   * Deep merge business rules with special handling for arrays
+   */
+  private mergeBusinessRules(
+    defaults: BusinessRules,
+    custom: BusinessRules
+  ): BusinessRules {
+    return {
+      workdays: custom.workdays ?? defaults.workdays,
+      holidays: custom.holidays ? deepClone(custom.holidays) : defaults.holidays,
+      fiscalYearStart: custom.fiscalYearStart ?? defaults.fiscalYearStart
+    }
+  }
+
   getConfig(): Readonly<DayjsBusinessConfig> {
-    return Object.freeze({ ...this.config })
+    return Object.freeze({ ...this.config }) as Readonly<DayjsBusinessConfig>
   }
 
   updateConfig(updates: Partial<DayjsBusinessConfig>): void {
@@ -107,22 +177,22 @@ class DebugLogger {
 
 /**
  * DayjsFactory - Creates isolated dayjs instances with business configuration
+ *
+ * Note: While dayjs plugins modify the global prototype, each factory instance
+ * maintains its own plugin registry to prevent duplicate registrations and
+ * provides isolated configuration and state management.
  */
 export class DayjsFactory {
   private readonly registry: PluginRegistry
   private readonly configManager: ConfigManager
   private readonly logger: DebugLogger
   private readonly instanceId: string
-  private localDayjs: typeof dayjs
 
   constructor(config: Partial<DayjsBusinessConfig> = {}) {
     this.instanceId = generateInstanceId()
     this.registry = new PluginRegistry()
     this.configManager = new ConfigManager(config)
     this.logger = new DebugLogger(config.debugMode ?? false)
-
-    // Create isolated dayjs instance
-    this.localDayjs = dayjs
 
     this.initializePlugins(config)
     this.validateConfig()
@@ -134,14 +204,14 @@ export class DayjsFactory {
     }
 
     // Register core plugins
-    this.localDayjs.extend(utc)
-    this.localDayjs.extend(timezone)
+    dayjs.extend(utc)
+    dayjs.extend(timezone)
 
     // Register custom plugins
     if (config.plugins) {
       for (const plugin of config.plugins) {
         this.registry.register(plugin)
-        this.localDayjs.extend(plugin)
+        dayjs.extend(plugin)
       }
     }
 
@@ -181,9 +251,9 @@ export class DayjsFactory {
     let instance: Dayjs
 
     if (options.input !== undefined) {
-      instance = this.localDayjs(options.input)
+      instance = dayjs(options.input)
     } else {
-      instance = this.localDayjs()
+      instance = dayjs()
     }
 
     // Apply timezone if specified
@@ -272,9 +342,15 @@ export class DayjsFactory {
    * Register a plugin for this factory instance
    */
   use(plugin: PluginFunc): this {
+    // Check if plugin is already registered to prevent duplicate extension
+    if (this.registry.has(plugin)) {
+      this.logger.warn('Plugin already registered, skipping', { plugin: plugin.name || 'anonymous' })
+      return this
+    }
+
     this.registry.register(plugin)
-    this.localDayjs.extend(plugin)
-    this.logger.log('Plugin registered', { plugin: plugin.name ?? 'anonymous' })
+    dayjs.extend(plugin)
+    this.logger.log('Plugin registered', { plugin: plugin.name || 'anonymous' })
     return this
   }
 
@@ -313,6 +389,27 @@ export class DayjsFactory {
   }
 
   /**
+   * Get registered plugins for this factory instance
+   */
+  getRegisteredPlugins(): PluginFunc[] {
+    return this.registry.getPlugins()
+  }
+
+  /**
+   * Get plugin count
+   */
+  getPluginCount(): number {
+    return this.registry.getPluginCount()
+  }
+
+  /**
+   * Check if a plugin is registered
+   */
+  hasPlugin(plugin: PluginFunc): boolean {
+    return this.registry.has(plugin)
+  }
+
+  /**
    * Parse date string with validation
    */
   parse(input: ConfigType, strict = true): BusinessDayjs {
@@ -333,7 +430,7 @@ export class DayjsFactory {
    * Create UTC date
    */
   utc(input?: ConfigType): BusinessDayjs {
-    const instance = input !== undefined ? this.localDayjs.utc(input) : this.localDayjs.utc()
+    const instance = input !== undefined ? dayjs.utc(input) : dayjs.utc()
     return this.extendWithBusinessMethods(instance, {
       ...this.configManager.getConfig(),
       timezone: 'UTC'

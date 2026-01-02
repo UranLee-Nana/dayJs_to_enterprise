@@ -11,7 +11,8 @@
       "Bash(else echo \"✗ $dir missing\")",
       "Bash(fi:*)",
       "Bash(done)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(cat:*)"
     ]
   }
 }
